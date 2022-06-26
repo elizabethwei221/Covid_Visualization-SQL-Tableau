@@ -1,0 +1,115 @@
+Select *
+From CovidDeaths
+Where continent is not null 
+order by 3,4;
+
+Select Location, date, total_cases, new_cases, total_deaths, population
+From CovidDeaths
+Where continent is not null 
+order by 1,2;
+
+
+-- Total Cases vs Total Deaths
+-- Shows likelihood of dying if you contract covid in my country (Canada)
+
+Select Location, date, total_cases,total_deaths, (CAST(total_deaths AS float)/CAST(total_cases AS float))*100 as DeathPercentage
+From CovidDeaths
+Where location is 'Canada'
+and continent is not null 
+order by 1,2;
+
+--Total Cases vs Population
+--Shows what percentage of population got Covid
+Select Location, date, total_cases,population, (CAST(total_cases AS float)/CAST(population AS float))*100 as PopulationInfected
+From CovidDeaths
+Where location is 'Canada'
+and continent is not null 
+order by 1,2;
+
+-- Countries with Highest Infection Rate compared to Population
+
+Select Location, Population, MAX(total_cases) as HighestInfections,  Max(CAST(total_cases AS float)/CAST(population AS float))*100 as PercentPopulationInfected
+From CovidDeaths
+Group by Location, Population
+order by PercentPopulationInfected desc;
+
+-- Countries with Highest Death Count 
+Select location, MAX(CAST(Total_deaths as int)) as TotalDeathCount
+From CovidDeaths
+Where location NOT IN ('World', 'Upper middle income', 'High income', 'Europe', 'North America', 'Asia', 'Lower middle income', 'European Union','South America','Africa','Oceania')
+Group by location
+order by TotalDeathCount desc;
+
+-- Continents with Highest Death Count 
+Select location, MAX(CAST(Total_deaths as int)) as TotalDeathCount
+From CovidDeaths
+Where location IN ('Europe', 'World', 'North America', 'Asia',  'European Union','South America', 'Africa','Oceania')
+Group by location
+order by TotalDeathCount desc;
+
+--Global number
+Select date, SUM(new_cases) as total_cases, SUM(CAST(new_deaths as int)) as total_deaths, SUM(CAST(new_deaths as int))/SUM(new_cases)*100 as DeathPercentage
+From CovidDeaths
+Where continent is not null 
+Group by date
+order by 1,2;
+
+--Join Deaths table and Vacc table 
+Select *
+From CovidDeaths Dea
+Join CovidVac Vac
+    On Dea.location = Vac.location 
+    and Dea.date = Vac.date;
+    
+--Total population vs total vaccination
+--Use CTE 
+With PopvsVac (continent, location, date, population, new_vaccinations, RollingPeopleVac)
+As
+(
+Select Dea.continent, Dea.location, Dea.date, Dea.population, Vac.new_vaccinations
+, SUM(Cast(Vac.new_vaccinations AS int)) OVER (Partition by Dea.location Order by Dea.location, Dea.date) AS RollingPeopleVac
+From CovidDeaths Dea
+Join CovidVac Vac
+    On Dea.location = Vac.location 
+    and Dea.date = Vac.date
+Where Dea.continent IN ('Europe', 'North America', 'Asia',  'European Union','South America', 'Africa','Oceania')
+)
+SELECT *, (CAST(new_vaccinations AS float)/(CAST(population AS float)))*100 AS PercentageVac
+FROM PopvsVac;
+
+--Temp Table 
+Drop Table if exists NumOfVac;
+Create Table NumOfVac
+(
+continent nvarchar(255),
+location nvarchar(255),
+Date datetime,
+Population numeric, 
+New_vaccinations numeric,
+RollingPeopleVac numeric
+);
+
+Insert into NumOfVac
+Select Dea.continent, Dea.location, Dea.date, Dea.population, Vac.new_vaccinations
+, SUM(Cast(Vac.new_vaccinations AS int)) OVER (Partition by Dea.location Order by Dea.location, Dea.date) AS RollingPeopleVac
+From CovidDeaths Dea
+Join CovidVac Vac
+    On Dea.location = Vac.location 
+    and Dea.date = Vac.date
+;
+
+SELECT *, (CAST(RollingPeopleVac AS float)/(CAST(population AS float)))*100 AS PercentageVac
+From NumOfVac;
+
+--Create View to store data later visualizations
+Create View PercentageVac as
+Select Dea.continent, Dea.location, Dea.date, Dea.population, Vac.new_vaccinations
+, SUM(Cast(Vac.new_vaccinations AS int)) OVER (Partition by Dea.location Order by Dea.location, Dea.date) AS RollingPeopleVac
+From CovidDeaths Dea
+Join CovidVac Vac
+    On Dea.location = Vac.location 
+    and Dea.date = Vac.date
+Where Dea.continent IN ('Europe', 'North America', 'Asia',  'European Union','South America', 'Africa','Oceania');
+
+SELECT * FROM PercentageVac
+
