@@ -14,7 +14,7 @@ order by 1,2;
 
 Select Location, date, total_cases,total_deaths, (CAST(total_deaths AS float)/CAST(total_cases AS float))*100 as DeathPercentage
 From CovidDeaths
-Where location is 'Canada'
+Where location like '%states%'
 and continent is not null 
 order by 1,2;
 
@@ -111,5 +111,58 @@ Join CovidVac Vac
     and Dea.date = Vac.date
 Where Dea.continent IN ('Europe', 'North America', 'Asia',  'European Union','South America', 'Africa','Oceania');
 
-SELECT * FROM PercentageVac
+
+ /*
+Queries used for Tableau Project
+*/
+
+-- 1. 
+
+Select SUM(new_cases) as total_cases, SUM(cast(new_deaths as int)) as total_deaths, SUM(cast(new_deaths as int))/SUM(New_Cases)*100 as DeathPercentage
+From CovidDeaths
+where continent is not null 
+order by 1,2;
+
+-- 2. 
+Select location, SUM(new_deaths) as TotalDeathCount
+From CovidDeaths
+Where continent NOT IN ('Europe', 'North America', 'Asia',  'European Union','South America', 'Africa','Oceania')
+and location not in ('Upper middle income','High income','Lower middle income','Low income','World', 'European Union', 'International')
+Group by location
+order by TotalDeathCount desc;
+
+
+-- 3.
+CREATE Table InfectionsCountry
+(
+location nvarchar(255),
+Population numeric, 
+total_cases numeric,
+PercentPopulationInfected numeric
+) ;
+
+Insert into InfectionsCountry
+Select Location, Population, MAX(total_cases) as HighestInfections,  Max(CAST(total_cases AS float)/CAST(population AS float))*100 as PercentPopulationInfected
+From CovidDeaths
+Group by Location, Population
+order by PercentPopulationInfected desc;
+
+-- 4.
+CREATE Table InfectedTrend 
+(
+location nvarchar(255),
+Date datetime,
+Population numeric, 
+total_cases numeric,
+PercentPopulationInfected numeric
+) ;
+
+Insert into InfectedTrend
+Select Location, Population,date, MAX(total_cases) as HighestInfections,  Max(CAST(total_cases AS float)/CAST(population AS float))*100 as PercentPopulationInfected
+From CovidDeaths
+WHERE continent IN ('Europe', 'North America', 'Asia',  'European Union','South America', 'Africa','Oceania')
+Group by location, population, date
+order by PercentPopulationInfected desc;
+SELECT * FROM InfectedTrend
+
 
